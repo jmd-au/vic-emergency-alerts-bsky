@@ -8,7 +8,7 @@ import urllib3
 
 ssm_client = boto3.client("ssm")
 LOGGING_LEVEL = os.environ.get("LoggingLevel") or "INFO"
-
+USER_AGENT = os.environ.get("USER_AGENT")
 DATA_LAST_UPDATED_TIMESTAMP = os.environ.get("DATA_LAST_UPDATED_TIMESTAMP").split("parameter")[-1]
 DATA_LAST_UPDATED_HASH = os.environ.get("DATA_LAST_UPDATED_HASH").split("parameter")[-1]
 
@@ -24,31 +24,35 @@ def lambda_handler(event, context):
       "GET",
       "https://emergency.vic.gov.au/public/osom-delta.json",
       headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.3650.139"
+        "User-Agent": USER_AGENT
       }
     )
 
     if(get_last_update.status == 200):
-      
-      timestamp_newer = (datetime.datetime.now(datetime.timezone.utc) > datetime.datetime.fromisoformat(last_updated_timestamp))
+      timestamp_newer = (datetime.datetime.fromisoformat(json.dumps(get_last_update.json()["lastModified"]).strip('"')) > datetime.datetime.fromisoformat(f'{last_updated_timestamp.strip('"')}'))
       if(timestamp_newer):
         ssm_client.put_parameter(
           Name=DATA_LAST_UPDATED_TIMESTAMP,
           Value=f"{json.dumps(get_last_update.json()["lastModified"])}",
-          Overide=True
+          Overwrite=True
         )
+        logger.info(f'INFO: Timestamp updated, SSM Parameter updated with new timestamp: {json.dumps(get_last_update.json()["lastModified"])}')
+      else:
+        logger.info('INFO: Timestamp still the same, no update necessary.')
 
       if(last_updated_hash != json.dumps(get_last_update.json()["lastHash"])):
         ssm_client.put_parameter(
           Name=DATA_LAST_UPDATED_HASH,
           Value=f"{json.dumps(get_last_update.json()["lastHash"])}",
-          Overide=True
+          Overwrite=True
         )
-
+        logger.info(f'INFO: Hash updated, SSM Parameter updated with new hash: {json.dumps(get_last_update.json()["lastHash"])}')
+      else:
+        logger.info(f'INFO: Hash still the same, no update necessary.')
     else:
       logger.info(f'emv_get_last_updated FAILED. Request error: `{get_last_update.text}`')
       logger.error(f'{sys.exc_info()[0]}')
   except:
-    logger.info(f'emv_get_last_updated FAILED. Last data saved to SSM: `lastModified: {last_updated_timestamp}`, `lastHash: {last_updated_hash}')
+    logger.info(f'emv_get_last_updated FAILED. Last data saved to SSM: `lastModified: {last_updated_timestamp}`, `lastHash: {last_updated_hash}`, request response: `{get_last_update.text}`')
     logger.error(f'{sys.exc_info()[0]}')
   return None

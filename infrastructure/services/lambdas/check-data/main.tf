@@ -1,5 +1,5 @@
 module "emv_alert_check_data_function" {
-  source = "../../modules/lambda_function"
+  source = "../../../modules/lambda_function"
 
   lambda_function_name        = "emv-alert-check-data"
   lambda_function_description = "EMV | Blueky Alerts - Check Data Update"
@@ -11,6 +11,7 @@ module "emv_alert_check_data_function" {
   lambda_environment_variables = {
     DATA_LAST_UPDATED_TIMESTAMP = var.emv_data_last_updated_arn
     DATA_LAST_UPDATED_HASH      = var.emv_data_last_hash_arn
+    USER_AGENT                  = var.request_user_agent_string
     LoggingLevel                = var.lambda_log_level
   }
   lambda_layer_arns = [
@@ -56,16 +57,17 @@ resource "aws_iam_role_policy" "emv_alert_check_data_role_policy" {
           var.emv_data_last_updated_arn,
           var.emv_data_last_hash_arn
         ]
-      },
-      {
-        Action = [
-          "lambda:InvokeFunction"
-        ]
-        Effect = "Allow"
-        Resource = [
-
-        ]
       }
+      # ,
+      # {
+      #   Action = [
+      #     "lambda:InvokeFunction"
+      #   ]
+      #   Effect = "Allow"
+      #   Resource = [
+
+      #   ]
+      # }
     ]
   })
 }
