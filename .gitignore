@@ -40,3 +40,6 @@ terraform.rc
 # Ignore local data files for testing
 data/*.txt
 data/*.json
+
+# Ignore generated lambda funcitons
+*.zip
