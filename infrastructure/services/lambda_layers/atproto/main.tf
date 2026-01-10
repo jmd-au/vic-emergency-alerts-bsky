@@ -16,8 +16,7 @@ resource "aws_lambda_layer_version" "atproto" {
 
 resource "terraform_data" "lambda_layer_dependencies" {
   triggers_replace = {
-    every_time = timestamp()
-    # dependencies_versions = filemd5("${local.requirements_path}")
+    dependencies_versions = filemd5("${local.requirements_path}")
   }
   provisioner "local-exec" {
     command = <<EOT
