@@ -43,3 +43,6 @@ data/*.json
 
 # Ignore generated lambda funcitons
 *.zip
+
+# Ignore lambda build directory
+/infrastructure/python/**/*
