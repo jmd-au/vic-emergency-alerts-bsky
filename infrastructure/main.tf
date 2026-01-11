@@ -17,6 +17,12 @@ module "emv_check_data_lambda" {
   request_user_agent_string  = var.request_user_agent
   urllib3_layer_arn          = var.urllib3_lambda_layer_arn
 }
+
+module "emv_get_data_lambda" {
+  source = "./services/lambdas/get-data"
+
+  emv_events_queue_arn      = module.services_sqs_queues.events_queue_arn
+  emv_events_queue_url      = module.services_sqs_queues.events_queue_url
   request_user_agent_string = var.request_user_agent
   urllib3_layer_arn         = var.urllib3_lambda_layer_arn
 }
