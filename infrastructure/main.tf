@@ -1,9 +1,6 @@
 module "services_ddb_tables" {
   source = "./services/ddb"
 }
-module "lambda_layer_atproto" {
-  source = "./services/lambda_layers/atproto"
-}
 
 module "services_sqs_queues" {
   source            = "./services/sqs"
