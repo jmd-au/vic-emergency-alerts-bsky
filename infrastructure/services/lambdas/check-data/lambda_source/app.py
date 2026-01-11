@@ -7,10 +7,13 @@ import logging
 import urllib3
 
 ssm_client = boto3.client("ssm")
+lambda_client = boto3.client("lambda")
 LOGGING_LEVEL = os.environ.get("LoggingLevel") or "INFO"
 USER_AGENT = os.environ.get("USER_AGENT")
 DATA_LAST_UPDATED_TIMESTAMP = os.environ.get("DATA_LAST_UPDATED_TIMESTAMP").split("parameter")[-1]
 DATA_LAST_UPDATED_HASH = os.environ.get("DATA_LAST_UPDATED_HASH").split("parameter")[-1]
+EVENTS_LAMBDA_ARN = os.environ.get("EVENTS_LAMBDA_ARN")
+EVENTS_LAMBDA_NAME = os.environ.get("EVENTS_LAMBDA_NAME")
 
 logger = logging.getLogger()
 logger.setLevel(LOGGING_LEVEL)
@@ -49,6 +52,14 @@ def lambda_handler(event, context):
         logger.info(f'INFO: Hash updated, SSM Parameter updated with new hash: {json.dumps(get_last_update.json()["lastHash"])}')
       else:
         logger.info(f'INFO: Hash still the same, no update necessary.')
+      
+      if(timestamp_newer and last_updated_hash == json.dumps(get_last_update.json()["lastHash"])):
+        lambda_client.invoke(
+          FunctionName=EVENTS_LAMBDA_NAME,
+          InvocationType='Event',
+          LogType='None',
+          Payload='{}'
+        )
     else:
       logger.info(f'emv_get_last_updated FAILED. Request error: `{get_last_update.text}`')
       logger.error(f'{sys.exc_info()[0]}')
