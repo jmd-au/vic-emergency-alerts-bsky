@@ -53,7 +53,7 @@ def lambda_handler(event, context):
       else:
         logger.info(f'INFO: Hash still the same, no update necessary.')
       
-      if(timestamp_newer and last_updated_hash == json.dumps(get_last_update.json()["lastHash"])):
+      if(timestamp_newer and last_updated_hash != json.dumps(get_last_update.json()["lastHash"])):
         lambda_client.invoke(
           FunctionName=EVENTS_LAMBDA_NAME,
           InvocationType='Event',
