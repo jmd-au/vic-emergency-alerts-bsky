@@ -42,14 +42,15 @@ module "emv_process_data_lambda" {
 module "emv_post_bsky_lambda" {
   source = "./services/lambdas/post-bsky"
 
-  emv_events_table_arn  = module.services_ddb_tables.emv_events_table_arn
-  emv_events_table_name = module.services_ddb_tables.emv_events_table_name
-  emv_posts_queue_arn   = module.services_sqs_queues.posts_queue_arn
-  emv_posts_queue_url   = module.services_sqs_queues.posts_queue_url
-  urllib3_layer_arn     = var.urllib3_lambda_layer_arn
-  bluesky_handle_arn    = aws_ssm_parameter._bluesky_handle.arn
-  bluesky_secret_arn    = aws_ssm_parameter._bluesky_secret.arn
-  bluesky_jwt_arn       = aws_ssm_parameter._bluesky_jwt.arn
+  emv_events_table_arn    = module.services_ddb_tables.emv_events_table_arn
+  emv_events_table_name   = module.services_ddb_tables.emv_events_table_name
+  emv_posts_queue_arn     = module.services_sqs_queues.posts_queue_arn
+  emv_posts_queue_url     = module.services_sqs_queues.posts_queue_url
+  urllib3_layer_arn       = var.urllib3_lambda_layer_arn
+  bluesky_handle_arn      = aws_ssm_parameter._bluesky_handle.arn
+  bluesky_secret_arn      = aws_ssm_parameter._bluesky_secret.arn
+  bluesky_jwt_arn         = aws_ssm_parameter._bluesky_jwt.arn
+  bluesky_refresh_jwt_arn = aws_ssm_parameter._bluesky_refresh_jwt.arn
 }
 
 resource "aws_ssm_parameter" "_bluesky_handle" {
@@ -66,6 +67,12 @@ resource "aws_ssm_parameter" "_bluesky_secret" {
 
 resource "aws_ssm_parameter" "_bluesky_jwt" {
   name  = "/jmd/emv/bluesky_jwt"
+  type  = "SecureString"
+  value = "0"
+}
+
+resource "aws_ssm_parameter" "_bluesky_refresh_jwt" {
+  name  = "/jmd/emv/bluesky_refresh_jwt"
   type  = "SecureString"
   value = "0"
 }
