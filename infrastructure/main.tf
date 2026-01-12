@@ -27,6 +27,17 @@ module "emv_get_data_lambda" {
   urllib3_layer_arn         = var.urllib3_lambda_layer_arn
 }
 
+module "emv_process_data_lambda" {
+  source = "./services/lambdas/process-data"
+
+  emv_events_table_arn  = module.services_ddb_tables.emv_events_table_arn
+  emv_events_table_name = module.services_ddb_tables.emv_events_table_name
+  emv_events_queue_arn  = module.services_sqs_queues.events_queue_arn
+  emv_events_queue_url  = module.services_sqs_queues.events_queue_url
+  emv_posts_queue_arn   = module.services_sqs_queues.posts_queue_arn
+  emv_posts_queue_url   = module.services_sqs_queues.posts_queue_url
+  ddb_layer_arn         = var.ddb_lambda_layer_arn
+}
 
 resource "aws_ssm_parameter" "_bluesky_handle" {
   name  = "/jmd/emv/bluesky_handle"
@@ -69,4 +80,14 @@ resource "aws_lambda_permission" "emv_schedule_permission" {
   function_name = module.emv_check_data_lambda.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.emv_check_lastupdate_schedule.arn
+}
+
+resource "aws_lambda_event_source_mapping" "event_queue_source_mapping" {
+  event_source_arn = module.services_sqs_queues.events_queue_arn
+  function_name    = module.emv_process_data_lambda.function_arn
+  batch_size       = 10
+
+  scaling_config {
+    maximum_concurrency = 3
+  }
 }
