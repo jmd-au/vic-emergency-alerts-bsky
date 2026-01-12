@@ -4,7 +4,7 @@ module "emv_alert_check_data_function" {
   lambda_function_name        = "emv-alert-check-data"
   lambda_function_description = "EMV | Blueky Alerts - Check Data Update"
   lambda_function_role_arn    = aws_iam_role.emv_alert_check_data_role.arn
-  lambda_root                 = "./${path.module}/lambda_source/"
+  lambda_root                 = "./${path.module}/lambda_source"
   lambda_timeout              = 10
   lambda_memory_size          = 128
   lambda_runtime              = "python3.14"
