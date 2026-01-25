@@ -4,17 +4,19 @@ module "emv_alert_post_bsky_function" {
   lambda_function_name        = "emv-alert-post-bsky"
   lambda_function_description = "EMV | Blueky Alerts ATProto"
   lambda_function_role_arn    = aws_iam_role.emv_alert_post_bsky_role.arn
-  lambda_root                 = "./${path.module}/lambda_source/"
+  lambda_root                 = "./${path.module}/lambda_source"
   lambda_timeout              = 30
   lambda_memory_size          = 128
   lambda_runtime              = "python3.14"
   lambda_environment_variables = {
-    TABLE_NAME       = var.emv_events_table_name
-    BSKY_HANDLE      = var.bluesky_handle_arn
-    BSKY_SECRET      = var.bluesky_secret_arn
-    BSKY_JWT         = var.bluesky_jwt_arn
-    BSKY_REFRESH_JWT = var.bluesky_refresh_jwt_arn
-    LoggingLevel     = var.lambda_log_level
+    EVENTS_TABLE_NAME = var.emv_events_table_name
+    POSTS_QUEUE_URL   = var.emv_posts_queue_url
+    BSKY_HANDLE       = var.bluesky_handle_arn
+    BSKY_DID          = var.bluesky_did_arn
+    BSKY_SECRET       = var.bluesky_secret_arn
+    BSKY_JWT          = var.bluesky_jwt_arn
+    BSKY_REFRESH_JWT  = var.bluesky_refresh_jwt_arn
+    LoggingLevel      = var.lambda_log_level
   }
   lambda_layer_arns = [
     var.urllib3_layer_arn
@@ -85,7 +87,8 @@ resource "aws_iam_role_policy" "emv_alert_post_bsky_role_policy" {
         Effect = "Allow"
         Resource = [
           var.bluesky_handle_arn,
-          var.bluesky_secret_arn
+          var.bluesky_secret_arn,
+          var.bluesky_did_arn
         ]
       },
       {
