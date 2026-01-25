@@ -4,7 +4,6 @@ variable "emv_events_queue_url" {}
 variable "emv_events_queue_arn" {}
 variable "emv_posts_queue_url" {}
 variable "emv_posts_queue_arn" {}
-variable "ddb_layer_arn" {}
 
 variable "lambda_log_level" {
   type        = string
