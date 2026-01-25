@@ -36,7 +36,6 @@ module "emv_process_data_lambda" {
   emv_events_queue_url  = module.services_sqs_queues.events_queue_url
   emv_posts_queue_arn   = module.services_sqs_queues.posts_queue_arn
   emv_posts_queue_url   = module.services_sqs_queues.posts_queue_url
-  ddb_layer_arn         = var.ddb_lambda_layer_arn
 }
 
 module "emv_post_bsky_lambda" {
@@ -125,12 +124,12 @@ resource "aws_lambda_event_source_mapping" "event_queue_source_mapping" {
   }
 }
 
-# resource "aws_lambda_event_source_mapping" "event_queue_source_mapping" {
-#   event_source_arn = module.services_sqs_queues.events_queue_arn
-#   function_name    = module.emv_process_data_lambda.function_arn
-#   batch_size       = 20
+resource "aws_lambda_event_source_mapping" "posts_queue_source_mapping" {
+  event_source_arn = module.services_sqs_queues.posts_queue_arn
+  function_name    = module.emv_post_bsky_lambda.function_arn
+  batch_size       = 1
 
-#   # scaling_config {
-#   #   maximum_concurrency = 3
-#   # }
-# }
+  scaling_config {
+    maximum_concurrency = 2
+  }
+}
