@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import datetime
 import boto3
@@ -15,8 +14,8 @@ POSTS_QUEUE_URL = os.environ.get("POSTS_QUEUE_URL")
 BATCH_SIZE = 10
 FILTER_CONDITIONS = {
   "feedType": ["warning"],
-  "category1": ["Emergency Warning", "Watch and Act"],
-  "category2": ["Fire"]
+  "category1": ["Emergency Warning", "Watch and Act", "Flooding"],
+  "category2": ["Fire", "Met"]
 }
 
 logger = logging.getLogger()
