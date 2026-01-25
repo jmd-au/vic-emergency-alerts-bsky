@@ -46,3 +46,6 @@ data/*.json
 
 # Ignore lambda build directory
 /infrastructure/python/**/*
+/infrastructure/services/lambdas/**/lambda_source/*
+!/infrastructure/services/lambdas/**/lambda_source/app.py
+!/infrastructure/services/lambdas/**/lambda_source/requirements.txt
