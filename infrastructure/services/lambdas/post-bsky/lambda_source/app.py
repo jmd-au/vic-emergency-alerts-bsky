@@ -5,7 +5,7 @@ import boto3
 import logging
 import urllib3
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict
 from bs4 import BeautifulSoup
 
@@ -33,43 +33,35 @@ def lambda_handler(event, context):
   bsky_jwt = ssm_client.get_parameter(Name=BSKY_JWT, WithDecryption=True).get("Parameter").get("Value")
   bsky_refresh_jwt = ssm_client.get_parameter(Name=BSKY_REFRESH_JWT, WithDecryption=True).get("Parameter").get("Value")  
 
-  messages = sqs_client.receive_message(
-    QueueUrl=POSTS_QUEUE_URL
-  )
-
-  for message in messages["Records"]:
-    logger.info(f"message: {json.dumps(message)}")
-
-  event_id = "40602"
-  post_text = "TEST ALERT"
-
   messages = event['Records']
   for message in messages:
     messageBody = json.loads(message["body"])
-    # check if message already processed
-    if check_exists(f"{messageBody['id']}"):
-      logger.info(f"message already processed: {messageBody['id']}")
-      continue
+    event_id = messageBody['id']
+    post_text = messageBody['text'].split("More details")[0]
 
+    logger.info(f"Event ID: {event_id}, Text: {post_text}")
 
-  # if(get_current_atproto_session(bsky_jwt)[1] == 400):
-  #   logger.info("Creating new session...")
-  #   create_atproto_session(bsky_handle, bsky_secret)
-  #   create_post(
-  #       text=post_text,
-  #       session_jwt=bsky_jwt,
-  #       session_did=bsky_did,
-  #       embed_url=f'https://emergency.vic.gov.au/respond/#!/warning/{event_id}/moreinfo?ref=vic-emergencyalert.bsky.social',
-  #     )
-  # else:
-  #   logger.info("Refreshing session...")
-  #   refresh_atproto_session(bsky_refresh_jwt, bsky_jwt)
-  #   create_post(
-  #       text=post_text,
-  #       session_jwt=bsky_jwt,
-  #       session_did=bsky_did,
-  #       embed_url=f'https://emergency.vic.gov.au/respond/#!/warning/{event_id}/moreinfo',
-  #     )
+    logger.info(f"check_exists: {check_exists(event_id)}")
+
+    if(get_current_atproto_session(bsky_jwt)[1] == 400):
+      logger.info("Creating new session...")
+      create_atproto_session(bsky_handle, bsky_secret)
+    else:
+      logger.info("Refreshing session...")
+      refresh_atproto_session(bsky_refresh_jwt, bsky_jwt)
+
+    if(not check_exists(event_id)):
+      post_response = create_post(
+        text=post_text,
+        session_jwt=bsky_jwt,
+        session_did=bsky_did,
+        embed_url=f'https://emergency.vic.gov.au/respond/#!/warning/{event_id}/moreinfo',
+      )
+
+    if(post_response['validationStatus'] == "valid"):
+      logger.info("Updating details in dynamodb")
+      update_item_ddb(event_id, post_response)
+
   return None
 
 def create_post(text: str, session_jwt: str, session_did: str, embed_url=None):
@@ -101,7 +93,8 @@ def create_post(text: str, session_jwt: str, session_did: str, embed_url=None):
             "record": post,
         },
     )
-    logger.info(f"createRecord response: {json.dumps(resp.json())}")
+    logger.info(f"createRecord response: {json.dumps(resp.json(), indent=2)}")
+    return resp.json()
 
 def create_atproto_session(bsky_handle: str, bsky_secret: str):
   try:
@@ -383,44 +376,59 @@ def get_embed_ref(pds_url: str, ref_uri: str) -> Dict:
 #   DynamoDB Helpers
 #
 
-def update_item_ddb(message: dict):
-  response = users_table.update_item(
-        Key={"email": "test1@example.com"},
-        UpdateExpression="set #name = :n",
-        ExpressionAttributeNames={
-            "#name": "name",
-        },
-        ExpressionAttributeValues={
-            ":n": "John Doe",
-        },
-        ReturnValues="UPDATED_NEW",
-    )
+def update_item_ddb(event_id: str, message: dict):
   ddb_client.update_item(
     TableName=EVENTS_TABLE_NAME,
     Key={
-      "EventId": f"{message['id']}"
-    },
-    UpdateExpression="set #",
-
-
-    Item={
       "EventId": {
-        "S": f"{message['id']}"
-      },
-      "ttl_expire": {
-        "N": f"{int((datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)).timestamp())}"
+        'S': f"{event_id}"
       }
-    }
+    },
+    UpdateExpression="set #ttl_expire = :update_time, #post_uri = :uri, #cid = :cid, #commit_cid = :commit_cid, #commit_rev = :commit_rev, #validation_status = :validation_status",
+    ExpressionAttributeNames={
+      "#ttl_expire": "ttl_expire",
+      "#post_uri": "bsky_post_uri",
+      "#cid": "bsky_cid",
+      "#commit_cid": "bsky_commit_cid",
+      "#commit_rev": "bsky_commit_rev",
+      "#validation_status": "bsky_validation_status"
+    },
+    ExpressionAttributeValues={
+      ':update_time': {
+        'N': f"{int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())}"
+      },
+      ':uri': {
+        'S': f"{str(message['uri'])}"
+      },
+      ':cid': {
+        'S': f"{str(message['cid'])}"
+      },
+      ':commit_cid': {
+        'S': f"{str(message['commit']['cid'])}"
+      },
+      ':commit_rev': {
+        'S': f"{str(message['commit']['rev'])}"
+      },
+      ':validation_status': {
+        'S': f"{str(message['validationStatus'])}"
+      }
+    },
+    ReturnValues='NONE'
   )
 
 def check_exists(EventId: str):
-  check_exists = ddb_client.scan(
+  check_exists = ddb_client.query(
     TableName=EVENTS_TABLE_NAME,
+    ExpressionAttributeNames={
+      "#eventId": "EventId",
+      "#post_uri": "bsky_post_uri"
+    },
     ExpressionAttributeValues={
       ":recordId": {
         "S": f"{EventId}"
       }
     },
-    FilterExpression="EventId = :recordId"
+    KeyConditionExpression="#eventId = :recordId",
+    FilterExpression="attribute_exists(#post_uri)"
   )
   return bool(check_exists["Count"])
