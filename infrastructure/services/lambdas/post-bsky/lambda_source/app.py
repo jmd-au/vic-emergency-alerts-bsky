@@ -41,7 +41,7 @@ def lambda_handler(event, context):
     post_text = messageBody['text'].split("More details")[0]
     
     if messageBody["cap"]["category"] == "Fire":
-      post_text += "#VicFires"
+      post_text += "#VicFires "
     
     logger.info(f"Event ID: {event_id}, Text: {post_text}")
     logger.info(f"check_exists: {check_exists(event_id)}")
