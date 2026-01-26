@@ -8,6 +8,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict
 from bs4 import BeautifulSoup
+from urllib.parse import urlencode
 
 ssm_client = boto3.client("ssm")
 sqs_client = boto3.client("sqs")
@@ -55,7 +56,7 @@ def lambda_handler(event, context):
         text=post_text,
         session_jwt=bsky_jwt,
         session_did=bsky_did,
-        embed_url=f'https://emergency.vic.gov.au/respond/#!/warning/{event_id}/moreinfo',
+        embed_url=f'https://emergency.vic.gov.au/respond/#!/warning/{event_id}/moreinfo?referrer=vic-emergencyalert.bsky.social',
       )
 
     if(post_response['validationStatus'] == "valid"):
@@ -239,13 +240,13 @@ def upload_file(access_token, img_bytes) -> Dict:
 def parse_facets(text: str) -> List[Dict]:
     facets = []
     for m in parse_mentions(text):
-        resp = urllib3.request("GET",
-            "https://bsky.social/xrpc/com.atproto.identity.resolveHandle",
-            params={"handle": m["handle"]},
+        resp = urllib3.request(
+            "GET",
+            f"https://bsky.social/xrpc/com.atproto.identity.resolveHandle?{urlencode({"handle": m["handle"]})}",
         )
         # If the handle can't be resolved, just skip it!
         # It will be rendered as text in the post instead of a link
-        if resp.status_code == 400:
+        if resp.status == 400:
             continue
         did = resp.json()["did"]
         facets.append({
@@ -269,54 +270,81 @@ def parse_facets(text: str) -> List[Dict]:
                 }
             ],
         })
+    for t in parse_tags(text):
+      facets.append({
+        "index": {
+          "byteStart": t["start"],
+          "byteEnd": t["end"],
+        },
+        "features": [
+          {
+            "$type": "app.bsky.richtext.facet#tag",
+            "tag": f"{t['tag'].replace("/^#/", '')}"
+          },
+        ]
+      })
     return facets
 
+def parse_tags(text: str) -> List[Dict]:
+  spans = []
+  tag_regex = rb"(?:^|\s)(#[^\d\s]\S*)(?=\s)"
+  text_bytes = text.encode("UTF-8")
+  for t in re.finditer(tag_regex, text_bytes):
+    spans.append(
+      {
+        "start": t.start(1),
+        "end": t.end(1),
+        "tag": t.group(1)[1:].decode("UTF-8"),
+      }
+    )
+  return spans
+
 def parse_mentions(text: str) -> List[Dict]:
-    spans = []
-    # regex based on: https://atproto.com/specs/handle#handle-identifier-syntax
-    mention_regex = rb"[$|\W](@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
-    text_bytes = text.encode("UTF-8")
-    for m in re.finditer(mention_regex, text_bytes):
-        spans.append(
-            {
-                "start": m.start(1),
-                "end": m.end(1),
-                "handle": m.group(1)[1:].decode("UTF-8"),
-            }
-        )
-    return spans
+  spans = []
+  # regex based on: https://atproto.com/specs/handle#handle-identifier-syntax
+  mention_regex = rb"[$|\W](@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
+  text_bytes = text.encode("UTF-8")
+  for m in re.finditer(mention_regex, text_bytes):
+    spans.append(
+      {
+        "start": m.start(1),
+        "end": m.end(1),
+        "handle": m.group(1)[1:].decode("UTF-8"),
+      }
+    )
+  return spans
 
 def parse_urls(text: str) -> List[Dict]:
-    spans = []
-    # partial/naive URL regex based on: https://stackoverflow.com/a/3809435
-    # tweaked to disallow some training punctuation
-    url_regex = rb"[$|\W](https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*[-a-zA-Z0-9@%_\+~#//=])?)"
-    text_bytes = text.encode("UTF-8")
-    for m in re.finditer(url_regex, text_bytes):
-        spans.append(
-            {
-                "start": m.start(1),
-                "end": m.end(1),
-                "url": m.group(1).decode("UTF-8"),
-            }
-        )
-    return spans
+  spans = []
+  # partial/naive URL regex based on: https://stackoverflow.com/a/3809435
+  # tweaked to disallow some training punctuation
+  url_regex = rb"[$|\W](https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*[-a-zA-Z0-9@%_\+~#//=])?)"
+  text_bytes = text.encode("UTF-8")
+  for m in re.finditer(url_regex, text_bytes):
+    spans.append(
+      {
+        "start": m.start(1),
+        "end": m.end(1),
+        "url": m.group(1).decode("UTF-8"),
+      }
+    )
+  return spans
 
 def parse_uri(uri: str) -> Dict:
-    if uri.startswith("at://"):
-        repo, collection, rkey = uri.split("/")[2:5]
-        return {"repo": repo, "collection": collection, "rkey": rkey}
-    elif uri.startswith("https://bsky.app/"):
-        repo, collection, rkey = uri.split("/")[4:7]
-        if collection == "post":
-            collection = "app.bsky.feed.post"
-        elif collection == "lists":
-            collection = "app.bsky.graph.list"
-        elif collection == "feed":
-            collection = "app.bsky.feed.generator"
-        return {"repo": repo, "collection": collection, "rkey": rkey}
-    else:
-        raise Exception("unhandled URI format: " + uri)
+  if uri.startswith("at://"):
+    repo, collection, rkey = uri.split("/")[2:5]
+    return {"repo": repo, "collection": collection, "rkey": rkey}
+  elif uri.startswith("https://bsky.app/"):
+    repo, collection, rkey = uri.split("/")[4:7]
+    if collection == "post":
+      collection = "app.bsky.feed.post"
+    elif collection == "lists":
+      collection = "app.bsky.graph.list"
+    elif collection == "feed":
+      collection = "app.bsky.feed.generator"
+    return {"repo": repo, "collection": collection, "rkey": rkey}
+  else:
+    raise Exception("unhandled URI format: " + uri)
 
 def get_reply_refs(pds_url: str, parent_uri: str) -> Dict:
     uri_parts = parse_uri(parent_uri)
