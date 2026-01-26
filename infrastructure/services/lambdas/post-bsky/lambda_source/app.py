@@ -39,9 +39,11 @@ def lambda_handler(event, context):
     messageBody = json.loads(message["body"])
     event_id = messageBody['id']
     post_text = messageBody['text'].split("More details")[0]
-
+    
+    if messageBody["cap"]["category"] == "Fire":
+      post_text += "#VicFires"
+    
     logger.info(f"Event ID: {event_id}, Text: {post_text}")
-
     logger.info(f"check_exists: {check_exists(event_id)}")
 
     if(get_current_atproto_session(bsky_jwt)[1] == 400):
