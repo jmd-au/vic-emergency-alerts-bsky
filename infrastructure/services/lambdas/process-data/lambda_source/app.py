@@ -14,7 +14,7 @@ POSTS_QUEUE_URL = os.environ.get("POSTS_QUEUE_URL")
 BATCH_SIZE = 10
 FILTER_CONDITIONS = {
   "feedType": ["warning"],
-  "category1": ["Emergency Warning", "Watch and Act", "Flooding", "Flash Flood"],
+  "category1": ["Advice", "Emergency Warning", "Watch and Act", "Flooding", "Flash Flood"],
   "category2": ["Fire", "Met"]
 }
 
