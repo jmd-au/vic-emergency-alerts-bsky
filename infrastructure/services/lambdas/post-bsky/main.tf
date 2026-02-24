@@ -19,7 +19,8 @@ module "emv_alert_post_bsky_function" {
     LoggingLevel      = var.lambda_log_level
   }
   lambda_layer_arns = [
-    var.urllib3_layer_arn
+    var.urllib3_layer_arn,
+    var.bs4_lambda_layer_arn
   ]
 }
 

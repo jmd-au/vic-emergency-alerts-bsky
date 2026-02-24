@@ -46,6 +46,7 @@ module "emv_post_bsky_lambda" {
   emv_posts_queue_arn     = module.services_sqs_queues.posts_queue_arn
   emv_posts_queue_url     = module.services_sqs_queues.posts_queue_url
   urllib3_layer_arn       = var.urllib3_lambda_layer_arn
+  bs4_lambda_layer_arn    = var.bs4_lambda_layer_arn
   bluesky_handle_arn      = aws_ssm_parameter._bluesky_handle.arn
   bluesky_did_arn         = aws_ssm_parameter._bluesky_did.arn
   bluesky_secret_arn      = aws_ssm_parameter._bluesky_secret.arn

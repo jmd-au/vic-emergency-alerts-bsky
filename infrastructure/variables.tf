@@ -3,4 +3,5 @@ variable "bluesky_secret" {}
 variable "bluesky_did" {}
 variable "urllib3_lambda_layer_arn" {}
 variable "ddb_lambda_layer_arn" {}
+variable "bs4_lambda_layer_arn" {}
 variable "request_user_agent" {}

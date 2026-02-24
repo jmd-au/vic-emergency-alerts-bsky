@@ -3,6 +3,7 @@ variable "emv_events_table_name" {}
 variable "emv_posts_queue_arn" {}
 variable "emv_posts_queue_url" {}
 variable "urllib3_layer_arn" {}
+variable "bs4_lambda_layer_arn" {}
 variable "bluesky_handle_arn" {}
 variable "bluesky_did_arn" {}
 variable "bluesky_secret_arn" {}
